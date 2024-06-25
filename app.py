@@ -14,46 +14,65 @@ load_dotenv()
 
 client = openai.OpenAI()
 
-model = "gpt-3.5-turbo"
+model = "gpt-3.5-turbo" #"gpt-4-1106-preview"
 
-#Step 1. Upload a file to Openai embeddings
+# Step 1. Upload a file to OpenaI embeddings ===
 filepath = "./cryptocurrency.pdf"
-file_object = client.files.create(file=open(filepath,"rb"),
-                                  purpose="user_data")
+file_object = client.files.create(file=open(filepath, "rb"), purpose="assistants")
 
-#Step 2. Create an assitnat
+# Step 2 - Create an assistant
 # assistant = client.beta.assistants.create(
-#     name="Estimator test",
+#     name="Studdy Buddy",
 #     instructions="""You are a helpful study assistant who knows a lot about understanding research papers.
-#      Your role is to summarize papers, clarify terminology within context, and extract key figures and data.
-#      Cross-reference information for additional insights and answer related questions comprehensively.
-#      Analyze the papers, noting strengths and limitations.
-#      Respond to queries effectively, incorporating feedback to enhance your accuracy.
-#      Handle data securely and update your knowledge base with the latest research.
-#      Adhere to ethical standards, respect intellectual property, and provide users with guidance on any limitations.
-#      Maintain a feedback loop for continuous improvement and user support.
-#      Your ultimate goal is to facilitate a deeper understanding of complex scientific material, making it more accessible and comprehensible.""",
-#      tools=[{"type": "file_search"}],
-#      model=model,
-     
-#  )
+#     Your role is to summarize papers, clarify terminology within context, and extract key figures and data.
+#     Cross-reference information for additional insights and answer related questions comprehensively.
+#     Analyze the papers, noting strengths and limitations.
+#     Respond to queries effectively, incorporating feedback to enhance your accuracy.
+#     Handle data securely and update your knowledge base with the latest research.
+#     Adhere to ethical standards, respect intellectual property, and provide users with guidance on any limitations.
+#     Maintain a feedback loop for continuous improvement and user support.
+#     Your ultimate goal is to facilitate a deeper understanding of complex scientific material, making it more accessible and comprehensible.""",
+#     tools=[{"type": "file_search"}],
+#     model=model,
+#     #file_ids=[file_object.id],
+# )
 
-#=== Get the Assis ID ===
+# === Get the Assis ID ===
 # assis_id = assistant.id
 # print(assis_id)
 
 # == Hardcoded ids to be used once the first code run is done and the assistant was created
-thread_id = "thread_cd73jCLMYAfRd02GISMNdler"
-assis_id = "asst_QUn7ebBcMKBfqYtQTJCjdqzZ"
+thread_id = "thread_H5lFYbfk7pPPWlCZNEpJxWRg"
+assis_id = "asst_5iPIvOvOI4Aa9LhWPQqurnie"
 
 # == Step 3. Create a Thread
 message = "What is mining?"
+
 # thread = client.beta.threads.create()
 # thread_id = thread.id
 # print(thread_id)
+
+
 message = client.beta.threads.messages.create(
     thread_id=thread_id, role="user", content=message
 )
+
+# Create a vector store caled "Financial Statements"
+vector_store = client.beta.vector_stores.create(name="Example store")
+ 
+# Ready the files for upload to OpenAI
+file_paths = ["edgar/goog-10k.pdf", "edgar/brka-10k.txt"]
+file_streams = [open(path, "rb") for path in file_paths]
+ 
+# Use the upload and poll SDK helper to upload the files, add them to the vector store,
+# and poll the status of the file batch for completion.
+file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
+  vector_store_id=vector_store.id, files=file_streams
+)
+ 
+# You can print the status and the file counts of the batch to see the result of this operation.
+print(file_batch.status)
+print(file_batch.file_counts)
 
 # == Run the Assistant
 run = client.beta.threads.runs.create(
@@ -61,6 +80,7 @@ run = client.beta.threads.runs.create(
     assistant_id=assis_id,
     instructions="Please address the user as Bruce",
 )
+
 
 def wait_for_run_completion(client, thread_id, run_id, sleep_interval=5):
     """
@@ -90,6 +110,7 @@ def wait_for_run_completion(client, thread_id, run_id, sleep_interval=5):
             break
         logging.info("Waiting for run to complete...")
         time.sleep(sleep_interval)
+
 
 # == Run it
 wait_for_run_completion(client=client, thread_id=thread_id, run_id=run.id)
