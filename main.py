@@ -62,6 +62,7 @@ def upload_to_openai2():
     finally:
         for stream in file_streams:
             stream.close()
+        st.session_state.file_path_list = []
 
 
 # ==== Sidebar to upload files =======
@@ -86,7 +87,7 @@ if st.sidebar.button("Upload File"):
         st.session_state.file_name_list.append(file_name)
         st.session_state.file_path_list.append(file_path)
         # Display the uploaded file name in the sidebar
-        st.sidebar.write(f"File Name: {file_name}")
+        #st.sidebar.write(f"File Name: {file_name}")
 
 #Display file ids
 if st.session_state.file_name_list:
