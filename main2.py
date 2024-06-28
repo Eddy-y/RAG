@@ -18,7 +18,7 @@ client = openai.OpenAI()
 model = "gpt-3.5-turbo" #"gpt-4-1106-preview"
 
 # == Hardcoded ids to be used once the first code run is done and the assistant was created
-thread_id = "thread_8qwOJFgPeTaMGJzCod59YIPS"
+#thread_id = "thread_8qwOJFgPeTaMGJzCod59YIPS"
 assis_id = "asst_sD5Wb80TKN5AW48tRI4q5cZk"
 vector_store_id = "vs_qdWgRbQBBtmrJjGI1uO70opj"
 
@@ -39,6 +39,9 @@ if "thread_id" not in st.session_state:
 if "vector_store_id" not in st.session_state:
     st.session_state.vector_store_id = None
 
+if "attachment_list" not in st.session_state:
+    st.session_state.attachment_list = []
+
 #Set up our frontend page
 st.set_page_config(
     page_title="Prove of Concept",
@@ -47,10 +50,10 @@ st.set_page_config(
 
 # === FUNCTION DEFINITIONS =====
 
-# def upload_to_openai(filepath):
-#     with open(filepath, "rb") as file:
-#         response = client.files.create(file=file.read(), purpose="assistants")
-#     return response.id
+def upload_to_openai(file_path):
+    with open(file_path, "rb") as file:
+        response = client.files.create(file=file, purpose="assistants")
+    return response.id
 
 def upload_to_openai2():
     print("Paths: ", st.session_state.file_path_list)
@@ -101,19 +104,54 @@ if st.session_state.file_name_list:
         except Exception as e:
             st.sidebar.error(f"Failed to upload files: {e}")
 
+additional_file = st.sidebar.file_uploader(
+            "Upload a file to add to the prompt",
+            key="file_upload_prompt"
+        )   
+
+
 # Button to iniciate the chat session
 if st.sidebar.button("Start Chatting..."):
-    if st.session_state.file_name_list:
+    #if st.session_state.file_name_list:
+
+    if additional_file:
+        # Get the file extension
+        file_extension = os.path.splitext(additional_file.name)[1]
+
+        # Create a temporary file with the same extension
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+            temp_file.write(additional_file.getbuffer())
+            file_path = temp_file.name
+
+        # Upload the file to OpenAI and get the file ID
+        file_id = upload_to_openai(file_path)
+        print(file_id)
+        st.session_state.attachment_list.append({"file_id": file_id, "tools": [{"type": "file_search"}]})
+
         st.session_state.start_chat = True
 
         #Create new thread for this chat session
-        chat_thread = client.beta.threads.create()
+        chat_thread = client.beta.threads.create(
+            messages=[
+                {
+                "role": "user",
+                # Attach the new file to the message.
+                "content": "Genera le estimacion para el documento BAN?",
+                "attachments": [
+                    { "file_id": file_id, "tools": [{"type": "file_search"}] }
+                ],
+                }
+            ]
+        )
         st.session_state.thread_id = chat_thread.id
         st.write("Thread ID: ", chat_thread.id)
+        # The thread now has a vector store with that file in its tool resources.
+        print(chat_thread.tool_resources.file_search)
     else:
         st.sidebar.warning(
             "No files found, please upload atleast one file to get started"
         )
+ 
 
 # Define the function to process messages with citations
 def process_message_with_citations(message):
@@ -160,38 +198,37 @@ def process_message_with_citations(message):
 st.title("First Prove of Concept")
 st.write("Meant for estimations")
 
-#Check sessions
+# Chat interface
 if st.session_state.start_chat:
     if "openai_model" not in st.session_state:
         st.session_state.openai_model = "gpt-3.5-turbo"
     if "messages" not in st.session_state:
         st.session_state.messages = []
-    #Show existing messages if any
+    # Show existing messages if any
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-            
     #Char input for the user
     if prompt := st.chat_input("Whats new?"):
         #Add user message to the state and display
         st.session_state.messages.append({"role":"user", "content":prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
-        
-        #Add the user message to the existing thread
+        print("Attachments: ", st.session_state.attachment_list)
+        # Add the user message to the existing thread
         client.beta.threads.messages.create(
             thread_id=st.session_state.thread_id,
             role="user",
-            content=prompt
+            content=prompt,
+            attachments=st.session_state.attachment_list
         )
+        st.session_state.attachment_list = []
 
-        # Create a run with additioal instructions
+        # Create a run with additional instructions
         run = client.beta.threads.runs.create(
             thread_id=st.session_state.thread_id,
-            assistant_id=assis_id,
-            instructions="""Please answer the questions using the knowledge provided in the files.
-            when adding additional information, make sure to distinguish it with bold or underlined text.""",
+            assistant_id=assis_id
         )
 
         # Show a spinner while the assistant is thinking...
@@ -205,8 +242,8 @@ if st.session_state.start_chat:
             messages = client.beta.threads.messages.list(
                 thread_id=st.session_state.thread_id
             )
-            
-            # Process and display assis messages
+
+            # Process and display assistant messages
             assistant_messages_for_run = [
                 message
                 for message in messages
@@ -220,9 +257,9 @@ if st.session_state.start_chat:
                 )
                 with st.chat_message("assistant"):
                     st.markdown(full_response, unsafe_allow_html=True)
-
     else:
         # Promopt users to start chat
         st.write(
             "Please upload at least a file to get started by clicking on the 'Start Chat' button"
         )
+

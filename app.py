@@ -17,7 +17,7 @@ client = openai.OpenAI()
 model = "gpt-3.5-turbo" #"gpt-4-1106-preview"
 
 # Step 1. Upload a file to OpenaI embeddings ===
-filepath = "./cryptocurrency.pdf"
+filepath = "./BAN_Trazabilidad de movimientos_Pirelli.pdf"
 file_object = client.files.create(file=open(filepath, "rb"), purpose="assistants")
 
 # Step 2 - Create an assistant
@@ -42,15 +42,15 @@ file_object = client.files.create(file=open(filepath, "rb"), purpose="assistants
 # print(assis_id)
 
 # == Hardcoded ids to be used once the first code run is done and the assistant was created
-thread_id = "thread_H5lFYbfk7pPPWlCZNEpJxWRg"
-assis_id = "asst_5iPIvOvOI4Aa9LhWPQqurnie"
+#thread_id = "thread_H5lFYbfk7pPPWlCZNEpJxWRg"
+assis_id = "asst_sD5Wb80TKN5AW48tRI4q5cZk"
 
 # == Step 3. Create a Thread
 message = "What is mining?"
 
-# thread = client.beta.threads.create()
-# thread_id = thread.id
-# print(thread_id)
+thread = client.beta.threads.create()
+thread_id = thread.id
+print(thread_id)
 
 
 message = client.beta.threads.messages.create(
@@ -58,27 +58,27 @@ message = client.beta.threads.messages.create(
 )
 
 # Create a vector store caled "Financial Statements"
-vector_store = client.beta.vector_stores.create(name="Example store")
+#vector_store = client.beta.vector_stores.create(name="Example store")
  
 # Ready the files for upload to OpenAI
-file_paths = ["edgar/goog-10k.pdf", "edgar/brka-10k.txt"]
-file_streams = [open(path, "rb") for path in file_paths]
+# file_paths = ["edgar/goog-10k.pdf", "edgar/brka-10k.txt"]
+# file_streams = [open(path, "rb") for path in file_paths]
  
 # Use the upload and poll SDK helper to upload the files, add them to the vector store,
 # and poll the status of the file batch for completion.
-file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
-  vector_store_id=vector_store.id, files=file_streams
-)
+# file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
+#   vector_store_id=vector_store.id, files=file_streams
+# )
  
 # You can print the status and the file counts of the batch to see the result of this operation.
-print(file_batch.status)
-print(file_batch.file_counts)
+# print(file_batch.status)
+# print(file_batch.file_counts)
 
 # == Run the Assistant
 run = client.beta.threads.runs.create(
     thread_id=thread_id,
     assistant_id=assis_id,
-    instructions="Please address the user as Bruce",
+    instructions="Please address the user as Forter",
 )
 
 
