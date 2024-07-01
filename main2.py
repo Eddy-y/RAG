@@ -116,7 +116,7 @@ if st.session_state.file_name_list:
         except Exception as e:
             st.sidebar.error(f"Failed to upload files: {e}")
 
-additional_file = st.sidebar.file_uploader(
+additional_files = st.sidebar.file_uploader(
             "Upload a file to add to the prompt",
             key="file_upload_prompt",
             type="pdf", 
@@ -128,20 +128,23 @@ additional_file = st.sidebar.file_uploader(
 if st.sidebar.button("Start Chatting..."):
     #if st.session_state.file_name_list:
 
-    if additional_file:
-        # Get the file extension
-        file_extension = os.path.splitext(additional_file.name)[1]
+    if additional_files:
+        attachment_list = []
+        for additional_file in additional_files:
+            # Get the file extension
+            file_extension = os.path.splitext(additional_file.name)[1]
 
-        # Create a temporary file with the same extension
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
-            temp_file.write(additional_file.getbuffer())
-            file_path = temp_file.name
+            # Create a temporary file with the same extension
+            with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+                temp_file.write(additional_file.getbuffer())
+                file_path = temp_file.name
 
-        # Upload the file to OpenAI and get the file ID
-        file_id = upload_to_thread(file_path)
-        print(file_id)
-        st.session_state.attachment_list.append({"file_id": file_id, "tools": [{"type": "file_search"}]})
+            # Upload the file to OpenAI and get the file ID
+            file_id = upload_to_thread(file_path)
+            print(file_id)
+            attachment_list.append({"file_id": file_id, "tools": [{"type": "file_search"}]})
 
+        st.session_state.attachment_list.extend(attachment_list)
         st.session_state.start_chat = True
 
         #Create new thread for this chat session
@@ -219,14 +222,16 @@ def process_message_with_citations(message):
  
  #The main interface
 st.title("First Prove of Concept")
-st.write("Meant for estimations")
+st.write("Thread ID: ", st.session_state.thread_id)
 
 # Chat interface
 if st.session_state.start_chat:
     if "openai_model" not in st.session_state:
-        st.session_state.openai_model = "gpt-3.5-turbo"
+        st.session_state.openai_model = "gpt-4o"
     if "messages" not in st.session_state:
         st.session_state.messages = []
+
+
     # Show existing messages if any
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
