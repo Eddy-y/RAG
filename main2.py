@@ -78,6 +78,9 @@ def delete_file_from_assistant(file_id):
         attachment for attachment in st.session_state.attachment_list if attachment["file_id"] != file_id
     ]
     print("lista ids file: ", st.session_state.attachment_list)
+    if st.session_state.attachment_list == []:
+        st.session_state.start_chat = False  
+  
 
 
 # ==== Sidebar to upload files =======
@@ -161,7 +164,6 @@ if st.sidebar.button("Start Chatting..."):
             ]
         )
         st.session_state.thread_id = chat_thread.id
-        st.write("Thread ID: ", chat_thread.id)
         # The thread now has a vector store with that file in its tool resources.
         print(chat_thread.tool_resources.file_search)
     else:
@@ -238,54 +240,60 @@ if st.session_state.start_chat:
             st.markdown(message["content"])
 
     #Chat input for the user
-    if prompt := st.chat_input("Whats new?"):
-        #Add user message to the state and display
-        st.session_state.messages.append({"role":"user", "content":prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        print("Attachments: ", st.session_state.attachment_list)
-        # Add the user message to the existing thread
-        client.beta.threads.messages.create(
-            thread_id=st.session_state.thread_id,
-            role="user",
-            content=prompt,
-            attachments=st.session_state.attachment_list
-        )
-        st.session_state.attachment_list = []
+    if st.session_state.attachment_list != []:
+        if prompt := st.chat_input("Whats new?"):
+            #Add user message to the state and display
+            st.session_state.messages.append({"role":"user", "content":prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+            print("Attachments: ", st.session_state.attachment_list)
+            # Add the user message to the existing thread
+            client.beta.threads.messages.create(
+                thread_id=st.session_state.thread_id,
+                role="user",
+                content=prompt,
+                attachments=st.session_state.attachment_list
+            )
+            st.session_state.attachment_list = []
 
-        # Create a run with additional instructions
-        run = client.beta.threads.runs.create(
-            thread_id=st.session_state.thread_id,
-            assistant_id=assis_id
-        )
-
-        # Show a spinner while the assistant is thinking...
-        with st.spinner("Wait... Generating response..."):
-            while run.status != "completed":
-                time.sleep(1)
-                run = client.beta.threads.runs.retrieve(
-                    thread_id=st.session_state.thread_id, run_id=run.id
-                )
-            # Retrieve messages added by the assistant
-            messages = client.beta.threads.messages.list(
-                thread_id=st.session_state.thread_id
+            # Create a run with additional instructions
+            run = client.beta.threads.runs.create(
+                thread_id=st.session_state.thread_id,
+                assistant_id=assis_id
             )
 
-            # Process and display assistant messages
-            assistant_messages_for_run = [
-                message
-                for message in messages
-                if message.run_id == run.id and message.role == "assistant"
-            ]
-
-            for message in assistant_messages_for_run:
-                full_response = process_message_with_citations(message=message)
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": full_response}
+            # Show a spinner while the assistant is thinking...
+            with st.spinner("Wait... Generating response..."):
+                while run.status != "completed":
+                    time.sleep(1)
+                    run = client.beta.threads.runs.retrieve(
+                        thread_id=st.session_state.thread_id, run_id=run.id
+                    )
+                # Retrieve messages added by the assistant
+                messages = client.beta.threads.messages.list(
+                    thread_id=st.session_state.thread_id
                 )
-                with st.chat_message("assistant"):
-                    st.markdown(full_response, unsafe_allow_html=True)
-    else:
+
+                # Process and display assistant messages
+                assistant_messages_for_run = [
+                    message
+                    for message in messages
+                    if message.run_id == run.id and message.role == "assistant"
+                ]
+
+                for message in assistant_messages_for_run:
+                    full_response = process_message_with_citations(message=message)
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": full_response}
+                    )
+                    with st.chat_message("assistant"):
+                        st.markdown(full_response, unsafe_allow_html=True)
+        else:
+            # Promopt users to start chat
+            st.write(
+                "Please upload at least a file to get started by clicking on the 'Start Chat' button"
+            )
+    else: 
         # Promopt users to start chat
         st.write(
             "Please upload at least a file to get started by clicking on the 'Start Chat' button"
