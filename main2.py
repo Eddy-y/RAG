@@ -50,12 +50,12 @@ st.set_page_config(
 
 # === FUNCTION DEFINITIONS =====
 
-def upload_to_openai(file_path):
+def upload_to_thread(file_path):
     with open(file_path, "rb") as file:
         response = client.files.create(file=file, purpose="assistants")
     return response.id
 
-def upload_to_openai2():
+def upload_to_assistant():
     print("Paths: ", st.session_state.file_path_list)
     file_streams = [open(path, "rb") for path in st.session_state.file_path_list]
     try:
@@ -67,6 +67,18 @@ def upload_to_openai2():
             stream.close()
         st.session_state.file_path_list = []
 
+def delete_file_from_assistant(file_id):
+    
+    client.files.delete(file_id=file_id)
+    # client.beta.assistants.files.delete(
+    #     assistant_id=assis_id,
+    #     file_id=file_id
+    # )
+    st.session_state.attachment_list = [
+        attachment for attachment in st.session_state.attachment_list if attachment["file_id"] != file_id
+    ]
+    print("lista ids file: ", st.session_state.attachment_list)
+
 
 # ==== Sidebar to upload files =======
 file_uploaded = st.sidebar.file_uploader(
@@ -75,7 +87,7 @@ file_uploaded = st.sidebar.file_uploader(
 )
 
 #Upload file button (store file id)
-if st.sidebar.button("Upload File"):
+if st.sidebar.button("Upload File to assistant VS"):
     if file_uploaded:
         # Get the file extension
         file_extension = os.path.splitext(file_uploaded.name)[1]
@@ -100,13 +112,15 @@ if st.session_state.file_name_list:
         # Upload files to OpenAI if there are files in the list
     if st.session_state.file_path_list:
         try:
-            upload_to_openai2()
+            upload_to_assistant()
         except Exception as e:
             st.sidebar.error(f"Failed to upload files: {e}")
 
 additional_file = st.sidebar.file_uploader(
             "Upload a file to add to the prompt",
-            key="file_upload_prompt"
+            key="file_upload_prompt",
+            type="pdf", 
+            accept_multiple_files=True
         )   
 
 
@@ -124,7 +138,7 @@ if st.sidebar.button("Start Chatting..."):
             file_path = temp_file.name
 
         # Upload the file to OpenAI and get the file ID
-        file_id = upload_to_openai(file_path)
+        file_id = upload_to_thread(file_path)
         print(file_id)
         st.session_state.attachment_list.append({"file_id": file_id, "tools": [{"type": "file_search"}]})
 
@@ -151,6 +165,15 @@ if st.sidebar.button("Start Chatting..."):
         st.sidebar.warning(
             "No files found, please upload atleast one file to get started"
         )
+
+# Display uploaded files and provide a delete button for each
+if 'attachment_list' in st.session_state:
+    for attachment in st.session_state.attachment_list:
+        file_id = attachment['file_id']
+        st.write(f"File ID: {file_id}")
+        if st.button(f"Delete {file_id}", key=f"delete_{file_id}"):
+            delete_file_from_assistant(file_id)
+            st.experimental_rerun()
  
 
 # Define the function to process messages with citations
@@ -209,7 +232,7 @@ if st.session_state.start_chat:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    #Char input for the user
+    #Chat input for the user
     if prompt := st.chat_input("Whats new?"):
         #Add user message to the state and display
         st.session_state.messages.append({"role":"user", "content":prompt})
